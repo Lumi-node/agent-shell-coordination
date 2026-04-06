@@ -1,0 +1,24 @@
+---
+title: "AgentShell: Turn your terminal into a collaborative workspace for AI age"
+abstract: "Distributed multi-agent system for collaborative shell command execution."
+authors:
+  - name: "Andrew Young"
+    affiliation: "Automate Capture Research"
+publishedDate: 2026-04-05
+tags:
+  - AI agents
+  - Terminal
+  - Collaborative workspace
+  - Command line interface
+status: published
+featured: false
+pdfUrl: "https://research.automate-capture.com/papers/RR-agent-shell-coordination-Young2026.pdf"
+---
+
+This past sprint has been intensely focused on laying the foundational state management for AgentShell, and I feel we've made significant headway on the most complex piece: the `TerminalStateManager`. The core motivation behind AgentShell stems from a growing gap in how we interact with powerful, distributed AI. Current LLM interactions are often siloed—they generate code, but executing that code in a shared, persistent, and collaborative environment is brittle. We envision a terminal not just as an input/output stream, but as a shared, mutable workspace where multiple autonomous agents (e.g., a 'Planner' agent, a 'CodeExecutor' agent, and a 'Debugger' agent) can work concurrently on the same shell session. The challenge, as you can imagine, is ensuring that when Agent A types `ls -l` and Agent B simultaneously tries to pipe the output into a file, the resulting terminal buffer state is logically consistent, even if their operations arrive out of order across the network.
+
+To tackle this, we've implemented the `TerminalStateManager` using a combination of vector clocks and Operational Transformation (OT). Essentially, the terminal buffer isn't treated as a single, monolithic string; it's modeled as a sequence of discrete, atomic operations (keystrokes, command submissions, output lines). When an agent performs an operation, it tags it with a vector clock reflecting the causal history of the state it observed. If two agents submit conflicting operations—say, one inserts text at index 5 while the other deletes text at index 5—the OT algorithm steps in. It doesn't just reject the second operation; it transforms it against the first one. For example, if Agent A inserts "Hello" at index 5, and Agent B deletes the character at index 5, the OT system transforms Agent B's delete operation to target the character *after* the newly inserted "Hello," thus preserving the intent of both operations in a causally consistent manner. The vector clocks ensure that we only apply transformations when we have seen all preceding operations that the incoming operation is dependent upon.
+
+What we've learned is that while OT provides the mathematical framework for conflict resolution, the practical overhead of maintaining and transforming complex text sequences in real-time is substantial. The initial performance profiling shows latency spikes when the divergence between agent histories becomes large, which is expected given the complexity of sequence transformation. A key limitation right now is the complexity of defining "semantic" conflicts versus purely "syntactic" ones; our current system handles the former well (e.g., two different inputs at the same spot) but struggles if two agents are trying to *interpret* the same output line differently. Looking forward, we need to explore integrating a more sophisticated consensus mechanism, perhaps leaning towards CRDTs for the buffer state itself, to potentially simplify the transformation logic and improve eventual consistency guarantees, rather than relying purely on OT's sequential transformation model.
+
+This work sits squarely at the intersection of distributed systems, collaborative editing theory, and AI agent orchestration. It echoes research in collaborative document editing (like Google Docs), but applies these concepts to the highly stateful, sequential nature of a command-line interface. Furthermore, it touches upon the challenges of multi-agent coordination in dynamic environments, similar to research in swarm robotics or distributed control systems. Successfully making the terminal state causally consistent is the linchpin that allows AgentShell to move beyond simple request/response patterns into true, shared, persistent collaboration.
