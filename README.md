@@ -29,18 +29,22 @@ pip install agent_shell_coordination
 ```
 
 ```python
-from mat.core.agent_registry import AgentRegistry
-from mat.coordination.coordinator import Coordinator
+from mat import AgentCoordinator, AgentRegistry
 
-# Initialize the system components
+# Create a coordinator for your agent
+coordinator = AgentCoordinator(agent_id="agent_alpha")
+
+# Register with the system
 registry = AgentRegistry()
-coordinator = Coordinator(registry)
+registry.register("agent_alpha", session_token="token123")
 
-# Example: Registering an agent and starting coordination
-agent_id = "agent_alpha"
-registry.register_agent(agent_id)
-coordinator.start_coordination(agent_id)
-print(f"Agent {agent_id} registered and coordination started.")
+# List active agents
+active_agents = registry.list_active()
+print(f"Active agents: {active_agents}")
+
+# Execute a command (when fully implemented)
+# result = coordinator.execute("ls -la", timeout_seconds=30)
+# print(f"Exit code: {result.exit_code}, Output: {result.stdout}")
 ```
 
 ## What Can You Do?
@@ -90,18 +94,25 @@ graph TD
 
 ## API Reference
 
-### `mat.core.agent_registry.AgentRegistry`
+### `mat.AgentCoordinator`
+High-level API for autonomous agents to coordinate commands.
+- `__init__(agent_id: str, heartbeat_interval_seconds: int = 10)`: Create coordinator for an agent
+- `execute(command: str, timeout_seconds: int = 60) -> ExecutionResult`: Execute a command with automatic lock management
+- `set_env(var_name: str, value: str) -> None`: Set a shared environment variable
+- `get_env(var_name: str) -> str`: Get a shared environment variable
+- `list_agents() -> List[str]`: List all currently active agents
+- `shutdown() -> None`: Gracefully shutdown the agent
+
+### `mat.AgentRegistry`
 Manages the set of active agents in the distributed system.
-- `register_agent(agent_id: str)`: Adds a new agent to the registry.
-- `get_agents() -> list[str]`: Returns a list of all registered agent IDs.
+- `register(agent_id: str, session_token: str) -> bool`: Register a new agent
+- `heartbeat(agent_id: str) -> bool`: Reset agent's last-seen timestamp
+- `list_active(timeout_seconds: int = 30) -> List[str]`: Return list of agents that heartbeated within timeout_seconds
+- `deregister(agent_id: str) -> bool`: Remove an agent from the registry
 
-### `mat.coordination.coordinator.Coordinator`
-The primary control loop for the multi-agent system.
-- `start_coordination(agent_id: str)`: Initiates the coordination process for a specific agent.
-
-### `mat.coordination.conflict_detector.ConflictDetector`
+### `mat.coordination.ConflictDetector`
 Handles the application of operational transformation protocols.
-- `merge_operations(op1: dict, op2: dict) -> dict`: Merges two potentially conflicting operations using Jupiter OT logic.
+- `merge_operations(op1: dict, op2: dict) -> dict`: Merges two potentially conflicting operations using Jupiter OT logic
 
 ## Research Background
 
